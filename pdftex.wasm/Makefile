@@ -1,4 +1,4 @@
-PROJECT_NAME	:=	swiftlatexpdftex.js
+PROJECT_NAME	:=	swiftlatexpdftex.worker.js
 
 CC          	= 	emcc
 CXX          	= 	em++
@@ -6,8 +6,9 @@ CFLAGS       	= 	-O3 \
 					-s USE_ZLIB=1 -s USE_LIBPNG=1 \
 					-Wno-parentheses-equality -Wno-pointer-sign -fno-rtti -fno-exceptions \
 					-DWEBASSEMBLY_BUILD
+LFLAGS	   	    =  -s SINGLE_FILE=1 -s ENVIRONMENT=node
 
-CXX_LINK     	= 	$(CXX) -o $@ $(CFLAGS)
+CXX_LINK     	= 	$(CXX) -o $@ $(CFLAGS) $(LFLAGS)
 
 TEXSOURCES   	= 	tex/pdftex0.c \
 					tex/pdftexini.c \
