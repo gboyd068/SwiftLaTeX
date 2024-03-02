@@ -226,6 +226,61 @@ function writeFileRoutine(filename, content) {
     }
 }
 
+function writeTexFileRoutine(filename, content) {
+    try {
+        FS.writeFile(TEXCACHEROOT + "/" + filename, content);
+        self.postMessage({
+            'result': 'ok',
+            'cmd': 'writetexfile'
+        });
+    } catch (err) {
+        console.error("Unable to write mem file");
+        self.postMessage({
+            'result': 'failed',
+            'cmd': 'writetexfile'
+        });
+    }
+}
+
+function transferTexFileToHost(filename) {
+    try { 
+        let content = FS.readFile(TEXCACHEROOT + "/" + filename, {
+            encoding: 'binary'
+        });
+        self.postMessage({
+            'result': 'ok',
+            'cmd': 'fetchfile',
+            'filename': filename,
+            'content': content
+        }, [content.buffer]);
+    } catch (err) {
+        console.error("Unable to fetch mem file");
+        self.postMessage({
+            'result': 'failed',
+            'cmd': 'fetchfile'
+        });
+    }
+}
+
+function transferCacheDataToHost() {
+    try {
+    self.postMessage({
+        'result': 'ok',
+        'cmd': 'fetchcache',
+        'texlive404_cache': texlive404_cache,
+        'texlive200_cache': texlive200_cache,
+        'pk404_cache': pk404_cache,
+        'pk200_cache': pk200_cache,
+    });
+    } catch (err) {
+        console.error("Unable to fetch cache");
+        self.postMessage({
+            'result': 'failed',
+            'cmd': 'fetchcache'
+        });
+    }
+}
+
 function setTexliveEndpoint(url) {
     if(url) {
         if (!url.endsWith("/")) {
@@ -255,6 +310,18 @@ self['onmessage'] = function(ev) {
         self.close();
     } else if (cmd === "flushcache") {
         cleanDir(WORKROOT);
+    } else if (cmd === "fetchfile") {
+        transferTexFileToHost(data['filename']);
+    } else if (cmd === "fetchcache") {
+        transferCacheDataToHost();
+    } else if (cmd === "writetexfile") {
+        writeTexFileRoutine(data['url'], data['src']); 
+    } else if (cmd === "writecache") {
+        texlive404_cache = data['texlive404_cache'];
+        texlive200_cache = data['texlive200_cache'];
+        pk404_cache = data['pk404_cache'];
+        pk200_cache = data['pk200_cache'];
+    
     } else {
         console.error("Unknown command " + cmd);
     }
