@@ -167,27 +167,37 @@ export class PdfTeXEngine {
 		}
 	}
 
-	public async fetchTexFile(filename: string, host_dir: string): Promise<void> {
-		// get files from the memfs based on the cache data objects
-		await new Promise((resolve, reject) => {
-			this.latexWorker!.onmessage = (ev: any) => {
-				const data: any = ev['data'];
-				const cmd: string = data['cmd'] as string;
-				if (cmd !== "fetchfile") return;
-				const result: string = data['result'] as string;
-				const fileContent: Uint8Array = new Uint8Array(data['fileContent']);
-				// write fetched file
-				fs.writeFileSync(path.join(host_dir, filename), fileContent);
-				if (result === 'ok') {
-					resolve();
-				} else {
-					reject(`failed to fetch tex file from memfs: ${filename}`);
-				}
-			};
-			this.latexWorker!.postMessage({ 'cmd': 'fetchtexfile', 'filename': filename });
-		});
-		this.latexWorker!.onmessage = (_: any) => {
+	public async fetchTexFiles(filenames: string[], host_dir: string): Promise<void> {
+		// Create a map to store the resolve functions for each file
+		const resolves: Map<string, (value?: unknown) => void> = new Map();
+
+		this.latexWorker!.onmessage = (ev: any) => {
+			const data: any = ev['data'];
+			const cmd: string = data['cmd'] as string;
+			if (cmd !== "fetchfile") return;
+			const result: string = data['result'] as string;
+			const fileContent: Uint8Array = new Uint8Array(data['content']);
+			const fname = data['filename'] as string;
+			// write fetched file
+			fs.writeFileSync(path.join(host_dir, fname), fileContent);
+			if (result === 'ok') {
+				// Resolve the Promise for this file
+				resolves.get(fname)!();
+			} else {
+				console.log(`Failed to fetch ${fname} from memfs`);
+			}
 		};
+
+		// Create a Promise for each file and store the resolve function
+		const promises = filenames.map(filename => new Promise(resolve => {
+			resolves.set(filename, resolve);
+			this.latexWorker!.postMessage({ 'cmd': 'fetchfile', 'filename': filename });
+		}));
+
+		// Wait for all Promises to resolve
+		await Promise.all(promises);
+
+		this.latexWorker!.onmessage = (_: any) => { };
 	}
 
 	public writeTexFSFile(filename: string, srccode: string | Uint8Array): void {
