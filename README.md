@@ -5,6 +5,8 @@ Demo Website https://www.swiftlatex.com
 
 [![Building Assets](https://github.com/SwiftLaTeX/SwiftLaTeX/actions/workflows/github-actions-build.yml/badge.svg?branch=master)](https://github.com/SwiftLaTeX/SwiftLaTeX/actions/workflows/github-actions-build.yml)
 
+## This is a fork of SwiftLaTeX, built to be compatible with https://github.com/gboyd068/obsidian-swiftlatex-render, changes have only been made to the pdfTeX version
+
 ## Introduction for SwiftLaTeX
 
 SwiftLaTeX, LaTeX Engines in Browsers with optional WYSIWYG support. We are a big fan of WebAssembly and all computation is done locally.
