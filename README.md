@@ -5,7 +5,7 @@ Demo Website https://www.swiftlatex.com
 
 [![Building Assets](https://github.com/SwiftLaTeX/SwiftLaTeX/actions/workflows/github-actions-build.yml/badge.svg?branch=master)](https://github.com/SwiftLaTeX/SwiftLaTeX/actions/workflows/github-actions-build.yml)
 
-## This is a fork of SwiftLaTeX, built to be compatible with https://github.com/gboyd068/obsidian-swiftlatex-render, changes have only been made to the pdfTeX version
+## This is a fork of SwiftLaTeX, built to be compatible with https://github.com/gboyd068/obsidian-swiftlatex-render, changes have been made to the pdftex, xetex and dvipdfmx engines to make them compatible with package caching in the plugin
 
 ## Introduction for SwiftLaTeX
 

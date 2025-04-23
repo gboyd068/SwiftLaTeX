@@ -22,7 +22,9 @@ export enum EngineStatus {
 	Error
 }
 
-const ENGINE_PATH = 'swiftlatexxetex.js';
+import * as fs from 'fs';
+import * as path from 'path';
+import Worker from './swiftlatexxetex.worker.js';
 
 export class CompileResult {
 	pdf: Uint8Array | undefined = undefined;
@@ -43,7 +45,7 @@ export class XeTeXEngine {
 		}
 		this.latexWorkerStatus = EngineStatus.Init;
 		await new Promise((resolve, reject) => {
-			this.latexWorker = new Worker(ENGINE_PATH);
+			this.latexWorker = Worker();
 			this.latexWorker.onmessage = (ev: any) => {
 				const data: any = ev['data'];
 				const cmd: string = data['result'] as string;
@@ -108,7 +110,7 @@ export class XeTeXEngine {
 	public async compileFormat(): Promise<void> {
 		this.checkEngineStatus();
 		this.latexWorkerStatus = EngineStatus.Busy;
-		await new Promise((resolve, reject) => {
+		new Promise((resolve, reject) => {
 			this.latexWorker!.onmessage = (ev: any) => {
 				const data: any = ev['data'];
 				const cmd: string =  data['cmd'] as string;
@@ -132,6 +134,77 @@ export class XeTeXEngine {
 		});
 		this.latexWorker!.onmessage = (_: any) => {
 		};
+	}
+
+	public async fetchCacheData(): Promise<any[]> {
+		const res: any[] = await new Promise((resolve, reject) => {
+			this.latexWorker!.onmessage = (ev: any) => {
+				const data: any = ev['data'];
+				const cmd: string = data['cmd'] as string;
+				if (cmd !== 'fetchcache') return;
+				const result: string = data['result'] as string;
+				const texlive404_cache= data['texlive404_cache'];
+				const texlive200_cache= data['texlive200_cache'];
+				const font404_cache = data['font404_cache'];
+				const font200_cache = data['font200_cache'];
+				if (result === 'ok') {
+					resolve([texlive404_cache, texlive200_cache, font404_cache, font200_cache]);
+				} else {
+					reject('failed to fetch cache data');
+				}
+			};
+			this.latexWorker!.postMessage({ 'cmd': 'fetchcache' });
+		});
+		this.latexWorker!.onmessage = (_: any) => {
+		};
+		return res; 
+	}
+
+	public writeCacheData(texlive404_cache: Object, texlive200_cache: Object, font404_cache: Object, font200_cache: Object): void {
+		this.checkEngineStatus();
+		if (this.latexWorker !== undefined) {
+			this.latexWorker.postMessage({ 'cmd': 'writecache', 'texlive404_cache': texlive404_cache, 'texlive200_cache': texlive200_cache, 'font404_cache': font404_cache, 'font200_cache': font200_cache });
+		}
+	}
+
+	public async fetchTexFiles(filenames: string[], host_dir: string): Promise<void> {
+		// Create a map to store the resolve functions for each file
+		const resolves: Map<string, (value?: unknown) => void> = new Map();
+
+		this.latexWorker!.onmessage = (ev: any) => {
+			const data: any = ev['data'];
+			const cmd: string = data['cmd'] as string;
+			if (cmd !== "fetchfile") return;
+			const result: string = data['result'] as string;
+			const fileContent: Uint8Array = new Uint8Array(data['content']);
+			const fname = data['filename'] as string;
+			// write fetched file
+			fs.writeFileSync(path.join(host_dir, fname), fileContent);
+			if (result === 'ok') {
+				// Resolve the Promise for this file
+				resolves.get(fname)!();
+			} else {
+				console.log(`Failed to fetch ${fname} from memfs`);
+			}
+		};
+
+		// Create a Promise for each file and store the resolve function
+		const promises = filenames.map(filename => new Promise(resolve => {
+			resolves.set(filename, resolve);
+			this.latexWorker!.postMessage({ 'cmd': 'fetchfile', 'filename': filename });
+		}));
+
+		// Wait for all Promises to resolve
+		await Promise.all(promises);
+
+		this.latexWorker!.onmessage = (_: any) => { };
+	}
+
+	public writeTexFSFile(filename: string, srccode: string | Uint8Array): void {
+		this.checkEngineStatus();
+		if (this.latexWorker !== undefined) {
+			this.latexWorker.postMessage({ 'cmd': 'writetexfile', 'url': filename, 'src': srccode });
+		}
 	}
 
 	public setEngineMainFile(filename: string): void {
@@ -180,3 +253,4 @@ export class XeTeXEngine {
 		}
 	}
 }
+module.exports = {XeTeXEngine};

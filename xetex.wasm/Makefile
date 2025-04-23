@@ -1,10 +1,10 @@
-PROJECT_NAME 	:= 	swiftlatexxetex.js
+PROJECT_NAME 	:= 	swiftlatexxetex.worker.js
 CC 				= 	emcc
 CXX 			= 	em++
-DEBUGFLAGS 		= 	-O3
+DEBUGFLAGS 		= 	-O3 -sASSERTIONS=1 -sDEMANGLE_SUPPORT=1
 
 CFLAGS 			= 	$(DEBUGFLAGS) -Wno-parentheses-equality -Wno-pointer-sign -DWEBASSEMBLY_BUILD \
-					-s USE_FREETYPE=1 -s USE_ICU=1 -s USE_LIBPNG=1 -fno-rtti -fno-exceptions
+					-s USE_FREETYPE=1 -s USE_ICU=1 -s USE_LIBPNG=1 #-fno-rtti -fno-exceptions
 
 LDFLAGS 		= 	$(DEBUGFLAGS) --js-library library.js \
 					-s USE_FREETYPE=1 \
@@ -12,7 +12,8 @@ LDFLAGS 		= 	$(DEBUGFLAGS) --js-library library.js \
 					-s USE_LIBPNG=1 \
 					--pre-js pre.js \
 					-s EXPORTED_FUNCTIONS='["_compileBibtex", "_compileLaTeX", "_compileFormat", "_main", "_setMainEntry"]' -s NO_EXIT_RUNTIME=1 \
-					-s WASM=1 -s EXPORTED_RUNTIME_METHODS=["cwrap"] -s ALLOW_MEMORY_GROWTH=1
+					-s WASM=1 -s EXPORTED_RUNTIME_METHODS=["cwrap"] -s ALLOW_MEMORY_GROWTH=1 \
+					-s SINGLE_FILE=1 -s ENVIRONMENT=node \
 
 LINKFLAG 		= 	$(CXX) -o $@ $(LDFLAGS)
 
