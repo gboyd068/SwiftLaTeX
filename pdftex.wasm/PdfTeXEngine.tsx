@@ -84,10 +84,8 @@ export class PdfTeXEngine {
 			};
 		});
 		// move this to somewhere less error-prone and allow caching
-		console.log("building TeXLive lookups");
 		this.packageToPathIndex = await buildPackageToPathIndex();
 		this.filenameToPackageIndex = await buildFilenameToPackageIndex(this.packageToPathIndex);
-		console.log("Finished building TeXLive lookups");
 		this.latexWorker!.onmessage = (_: any) => {};
 		this.latexWorker!.onerror = (_: any) => {};
 	}
@@ -121,20 +119,14 @@ export class PdfTeXEngine {
 					nice_report.log = log;
 					if (result === 'ok') {
 						const pdf: Uint8Array = new Uint8Array(data['pdf']);
-						nice_report.pdf = pdf;
-						resolve(nice_report);
+						nice_report.pdf = pdf;		
 					} 
-					else if (result === 'failed') {
-						nice_report.status = status;
-						nice_report.log = log;
-						reject(nice_report)
-					}
-					
+					resolve(nice_report);
 				}
 				else if (cmd === "downloadFromCTAN") {
 					let filename = data.filename;
 					let id = data.id;
-					console.log("main trying to download files related to", filename, "id:", id);
+					// console.log("main trying to download files related to", filename, "id:", id);
 					
 					try {
 						let filedatas = await this.downloadCTANFiles(filename);

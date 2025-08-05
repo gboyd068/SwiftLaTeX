@@ -357,7 +357,7 @@ function requestMainToDownloadCTANFiles(filename) {
   return new Promise((resolve, reject) => {
     let id = msgId++;
     pending.set(id, { resolve, reject });
-    console.log("pre: sending download from CTAN", filename);
+    // console.log("pre: sending download from CTAN", filename);
     self.postMessage({
         'cmd': 'downloadFromCTAN',
         'filename': filename,
@@ -383,7 +383,7 @@ async function kpse_find_file_impl(nameptr, format, _mustexist) {
         reqname = reqname + formatToSuffix(format);
     }
     const cacheKey = format + "/" + reqname;    
-    console.log(cacheKey);
+    // console.log(cacheKey);
 
     // if (cacheKey in texlive404_cache) {
     //     return 0;
@@ -405,11 +405,11 @@ async function kpse_find_file_impl(nameptr, format, _mustexist) {
             return 0;
         }
         for (const [filename, content] of result.entries()) {
-            console.log("trying to write", filename)
+            // console.log("trying to write", filename)
             const savepath = TEXCACHEROOT + "/" + filename;
             FS.writeFile(savepath, new Uint8Array(content));
             texlive200_cache[cacheKey] = savepath;
-            console.log(`successfully wrote ${filename}`)
+            console.log(`successfully fetched ${filename}`)
         }
         const savepath = TEXCACHEROOT + "/" + reqname;
         // texlive200_cache[cacheKey] = savepath;
