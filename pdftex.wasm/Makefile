@@ -6,7 +6,7 @@ CFLAGS       	= 	-O3 \
 					-s USE_ZLIB=1 -s USE_LIBPNG=1 \
 					-Wno-parentheses-equality -Wno-pointer-sign -fno-rtti -fno-exceptions \
 					-DWEBASSEMBLY_BUILD
-LFLAGS	   	    =  -s SINGLE_FILE=1 -s ENVIRONMENT=node
+LFLAGS	   	    =   -sASYNCIFY -sASYNCIFY_STACK_SIZE=16384 -s SINGLE_FILE=1 -s ENVIRONMENT=node
 
 CXX_LINK     	= 	$(CXX) -o $@ $(CFLAGS) $(LFLAGS)
 
@@ -58,7 +58,7 @@ all: $(PROJECT_NAME)
 $(PROJECT_NAME): $(HEADERS) $(TEXOBJECTS) $(PDFOBJECTS) $(EPDFOBJECTS)
 	@$(CXX_LINK) $(TEXOBJECTS) $(PDFOBJECTS) $(EPDFOBJECTS) xpdf/xpdf.a  --js-library library.js  --pre-js pre.js \
 	-s EXPORTED_FUNCTIONS='["_compileBibtex", "_compileLaTeX", "_compileFormat", "_main", "_setMainEntry"]' \
-	-s EXPORTED_RUNTIME_METHODS=["cwrap"] -s NO_EXIT_RUNTIME=1 -s ALLOW_MEMORY_GROWTH=1 && \
+	-s EXPORTED_RUNTIME_METHODS='["ccall", "cwrap"]' -s NO_EXIT_RUNTIME=1 -s ALLOW_MEMORY_GROWTH=1 && \
 	echo -e "\033[32m[DONE]\033[0m $(PROJECT_NAME)" || \
 	echo -e "\033[31m[ERROR]\033[0m $(PROJECT_NAME)"
 

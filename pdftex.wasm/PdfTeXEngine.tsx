@@ -1,3 +1,4 @@
+// @ts-nocheck
 /********************************************************************************
  * Copyright (C) 2019 Elliott Wen.
  *
@@ -24,7 +25,9 @@ export enum EngineStatus {
 
 import * as fs from 'fs';
 import * as path from 'path';
-import Worker from './swiftlatexpdftex.worker.js';
+import LaTeXWorker from './swiftlatexpdftex.worker.js';
+import {buildFilenameToPackageIndex, buildPackageToPathIndex, fetchTeXLiveFiles} from './texlivedownload.js'; //should just build and save these...
+import {requestUrl} from 'obsidian';
 
 export class CompileResult {
 	pdf: Uint8Array | undefined = undefined;
@@ -36,7 +39,29 @@ export class PdfTeXEngine {
 	private latexWorker: Worker | undefined = undefined;
 	public latexWorkerStatus: EngineStatus = EngineStatus.Init;
 	constructor() {
+		this.filenameToPackageIndex = {};
+		this.packageToPathIndex = {};
+	}
 
+	private async downloadCTANFiles(filename) {
+		if (filename === "swiftlatexpdftex.fmt") {
+			let filedatas = new Map();
+			console.log("downloading", filename);
+			let url = "https://github.com/gboyd068/Texlive-Ondemand/raw/refs/heads/master/swiftlatexpdftex.fmt";
+			let response = await requestUrl(url);
+			let text = await response.arrayBuffer;
+			filedatas.set(filename, text);
+			return filedatas
+		}
+		else {
+			let pkg = this.filenameToPackageIndex[filename];
+			if (pkg === undefined) {
+				return;
+			}
+			let filepaths = this.packageToPathIndex[pkg];
+			return await fetchTeXLiveFiles(pkg, filename)
+		}
+		
 	}
 
 	public async loadEngine(): Promise<void> {
@@ -45,7 +70,7 @@ export class PdfTeXEngine {
 		}
 		this.latexWorkerStatus = EngineStatus.Init;
 		await new Promise((resolve, reject) => {
-			this.latexWorker = Worker();
+			this.latexWorker = LaTeXWorker();
 			this.latexWorker.onmessage = (ev: any) => {
 				const data: any = ev['data'];
 				const cmd: string = data['result'] as string;
@@ -58,10 +83,13 @@ export class PdfTeXEngine {
 				}
 			};
 		});
-		this.latexWorker!.onmessage = (_: any) => {
-		};
-		this.latexWorker!.onerror = (_: any) => {
-		};
+		// move this to somewhere less error-prone and allow caching
+		console.log("building TeXLive lookups");
+		this.packageToPathIndex = await buildPackageToPathIndex();
+		this.filenameToPackageIndex = await buildFilenameToPackageIndex(this.packageToPathIndex);
+		console.log("Finished building TeXLive lookups");
+		this.latexWorker!.onmessage = (_: any) => {};
+		this.latexWorker!.onerror = (_: any) => {};
 	}
 
 	public isReady(): boolean {
@@ -78,30 +106,49 @@ export class PdfTeXEngine {
 		this.checkEngineStatus();
 		this.latexWorkerStatus = EngineStatus.Busy;
 		const start_compile_time = performance.now();
-		const res: CompileResult = await new Promise((resolve, _) => {
-			this.latexWorker!.onmessage = (ev: any) => {
+		const res: CompileResult = await new Promise((resolve, reject) => {
+			this.latexWorker!.onmessage = async (ev: any) => {
 				const data: any = ev['data'];
 				const cmd: string = data['cmd'] as string;
-				if (cmd !== "compile") return;
-				const result: string = data['result'] as string;
-				const log: string = data['log'] as string;
-				const status: number = data['status'] as number;
-				this.latexWorkerStatus = EngineStatus.Ready;
-				console.log('Engine compilation finish ' + (performance.now() - start_compile_time));
-				const nice_report = new CompileResult();
-				nice_report.status = status;
-				nice_report.log = log;
-				if (result === 'ok') {
-					const pdf: Uint8Array = new Uint8Array(data['pdf']);
-					nice_report.pdf = pdf;
+				if (cmd === "compile") {
+					const result: string = data['result'] as string;
+					const log: string = data['log'] as string;
+					const status: number = data['status'] as number;
+					this.latexWorkerStatus = EngineStatus.Ready;
+					console.log('Engine compilation finish ' + (performance.now() - start_compile_time));
+					const nice_report = new CompileResult();
+					nice_report.status = status;
+					nice_report.log = log;
+					if (result === 'ok') {
+						const pdf: Uint8Array = new Uint8Array(data['pdf']);
+						nice_report.pdf = pdf;
+						resolve(nice_report);
+					} 
+					else if (result === 'failed') {
+						nice_report.status = status;
+						nice_report.log = log;
+						reject(nice_report)
+					}
+					
 				}
-				resolve(nice_report);
+				else if (cmd === "downloadFromCTAN") {
+					let filename = data.filename;
+					let id = data.id;
+					console.log("main trying to download files related to", filename, "id:", id);
+					
+					try {
+						let filedatas = await this.downloadCTANFiles(filename);
+						// if (filedatas === undefined) throw Error(`no filedata received for ${filename}`);
+						this.latexWorker!.postMessage({cmd: "sendCTANFiles", id, result: filedatas, error: false });
+					} catch (error) {
+						this.latexWorker!.postMessage({cmd: "sendCTANFiles", id, result: undefined, error: error });
+					}
+				}
 			};
 			this.latexWorker!.postMessage({ 'cmd': 'compilelatex' });
 			console.log('Engine compilation start');
 		});
-		this.latexWorker!.onmessage = (_: any) => {
-		};
+		this.latexWorker!.onmessage = (_: any) => {};
 
 		return res;
 	}
@@ -132,8 +179,7 @@ export class PdfTeXEngine {
 			};
 			this.latexWorker!.postMessage({ 'cmd': 'compileformat' });
 		});
-		this.latexWorker!.onmessage = (_: any) => {
-		};
+		this.latexWorker!.onmessage = (_: any) => {};
 	}
 
 	public async fetchCacheData(): Promise<any[]> {
@@ -155,8 +201,7 @@ export class PdfTeXEngine {
 			};
 			this.latexWorker!.postMessage({ 'cmd': 'fetchcache' });
 		});
-		this.latexWorker!.onmessage = (_: any) => {
-		};
+		this.latexWorker!.onmessage = (_: any) => {};
 		return res;
 	}
 
@@ -197,7 +242,7 @@ export class PdfTeXEngine {
 		// Wait for all Promises to resolve
 		await Promise.all(promises);
 
-		this.latexWorker!.onmessage = (_: any) => { };
+		this.latexWorker!.onmessage = (_: any) => {};
 	}
 
 	public writeTexFSFile(filename: string, srccode: string | Uint8Array): void {

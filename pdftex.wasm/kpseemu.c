@@ -1,4 +1,5 @@
 #define EXTERN extern
+#include <emscripten.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -189,12 +190,22 @@ int xfclose(FILE *stream, const_string filename) {
   return 0;
 }
 
-extern char* kpse_find_file_js(const char* name, kpse_file_format_type format,
-                     boolean must_exist);
 
+EM_ASYNC_JS(char*, kpse_find_file_js_async, 
+  (const char* name, kpse_file_format_type format,boolean must_exist), {
+    // console.log("about to run javascript find file");
+    let res = await Module.kpse_find_file_impl(name, format, must_exist);
+    // console.log("after running javascript find file (hello from c)");
+    return res;
+});
 
-extern char* kpse_find_pk_js(const char* passed_fontname,  unsigned int dpi);
-
+EM_ASYNC_JS(char*, kpse_find_pk_js_async, 
+  (const char* name, unsigned int dpi), {
+    // console.log("about to run javascript find file");
+    let res = await Module.kpse_find_pk_impl(name, dpi);
+    // console.log("after running javascript find file (hello from c)");
+    return res;
+});
 
 static void fix_extension(char *local_name, int format) {
 #define SUFFIX(suf) strcat(local_name, suf);
@@ -371,7 +382,7 @@ char* kpse_find_file(const char* name, kpse_file_format_type format,
   free(local_name);
 
   // Head to network search
-  return kpse_find_file_js(name, format, must_exist);
+  return kpse_find_file_js_async(name, format, must_exist);
 
 }
 
@@ -400,5 +411,5 @@ char* kpse_find_pk(const char* fontname,  unsigned int dpi) {
   free(local_name);
   
   // Head to network search
-  return kpse_find_pk_js(fontname, dpi);
+  return kpse_find_pk_js_async(fontname, dpi);
 }
